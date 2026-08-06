@@ -20,18 +20,22 @@ app.use(session({
 }))
 
 passport.serializeUser((user, done) => done(null, user.id))
-passport.deserializeUser((id, done) => {
-  const user = DB.getUserById(id)
-  done(null, user)
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await DB.getUserById(id)
+    done(null, user)
+  } catch (err) {
+    done(err)
+  }
 })
 
 passport.use(new GitHubStrategy({
   clientID: process.env.GITHUB_OAUTH_CLIENT_ID || 'CLIENT_ID',
   clientSecret: process.env.GITHUB_OAUTH_CLIENT_SECRET || 'CLIENT_SECRET',
   callbackURL: process.env.GITHUB_OAUTH_CALLBACK || '/auth/github/callback'
-}, function(accessToken, refreshToken, profile, done){
+}, async function(accessToken, refreshToken, profile, done){
   try{
-    const user = DB.findOrCreateUser({id: profile.id, username: profile.username, displayName: profile.displayName, profileUrl: profile.profileUrl})
+    const user = await DB.findOrCreateUser({id: profile.id, username: profile.username, displayName: profile.displayName, profileUrl: profile.profileUrl})
     return done(null, user)
   }catch(err){
     return done(err)
@@ -52,8 +56,13 @@ app.get('/api/profile', (req, res) => {
   res.json(req.user)
 })
 
-app.get('/api/users', (req, res) => {
-  res.json(DB.allUsers())
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await DB.allUsers()
+    res.json(users)
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load users' })
+  }
 })
 
 // Serve frontend static build when deployed together
